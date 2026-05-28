@@ -1,13 +1,86 @@
 {
-    "atomType": "Molecule",
-    "x": 0,
-    "y": 0,
-    "uniqueID": "id-20436",
-    "name": "util.ShellNoTop",
-    "topLevel": true,
-    "allAtoms": [],
-    "allConnectors": [],
-    "unitsKey": "Unitless",
-    "fileTypeVersion": 1,
-    "filetypeVersion": 1
+  "atomType": "Molecule",
+  "x": 0,
+  "y": 0,
+  "uniqueID": "id-20436",
+  "name": "util.ShellNoTop",
+  "ioValues": [
+    {
+      "name": "Shape",
+      "ioValue": "__GEOMETRY_INPUT__"
+    },
+    {
+      "name": "Thickness",
+      "ioValue": 10
+    }
+  ],
+  "topLevel": true,
+  "allAtoms": [
+    {
+      "atomType": "Output",
+      "x": 0.98,
+      "y": 0.5,
+      "uniqueID": "id-20437",
+      "ioValues": [
+        {
+          "name": "number or geometry",
+          "ioValue": "__GEOMETRY_INPUT__"
+        }
+      ]
+    },
+    {
+      "atomType": "Input",
+      "x": 0.025384615384615384,
+      "y": 0.30857142857142855,
+      "uniqueID": "id-20439",
+      "name": "Shape",
+      "type": "geometry"
+    },
+    {
+      "atomType": "Input",
+      "x": 0.025384615384615384,
+      "y": 0.5628571428571428,
+      "uniqueID": "id-20442",
+      "name": "Thickness"
+    },
+    {
+      "atomType": "Code",
+      "x": 0.4251302083333333,
+      "y": 0.5742857142857143,
+      "uniqueID": "id-20445",
+      "ioValues": [
+        {
+          "name": "thickness",
+          "ioValue": 10
+        },
+        {
+          "name": "geom",
+          "ioValue": "__GEOMETRY_INPUT__"
+        }
+      ],
+      "interpreterVersion": 1,
+      "code": "\n/**\n * =========================================================================\n *  ABUNDANCE CODE ATOM — Quick Reference\n * =========================================================================\n *\n *  HOW INPUTS WORK\n *  ---------------\n *  Every parameter of run() becomes an input port on this atom.\n *  Four types are supported:\n *\n *    number   -> numeric input / slider\n *    string   -> text input  (great for hex color codes, labels, etc.)\n *    boolean  -> true/false toggle\n *    Assembly -> geometry -- wire this to the output of another atom\n *\n *  Give a parameter a default value ( = x ) to make it optional.\n *  Mark it with ? (name?: Assembly) to make it optional with no default.\n *  Parameters without a default must be connected before the atom runs.\n *\n *  RETURN VALUE\n *  ------------\n *  Return an Assembly, an Assembly[], or a primitive (number/string/boolean).\n *  Returning an Assembly[] lets downstream atoms (BOM, cut layout...)\n *  see each piece independently.\n *\n *  GEOMETRY API  (replicad is available as a global)\n *  -------------------------------------------------\n *  Create 2-D sketches\n *    replicad.drawCircle(radius)\n *    replicad.drawRectangle(width, height)\n *    replicad.drawRoundedRectangle(width, height, cornerRadius)\n *\n *  Turn a 2-D sketch into a 3-D solid\n *    sketch.sketchOnPlane().extrude(distance)\n *    sketch.sketchOnPlane().revolve()          // rotate 360 deg around Z\n *\n *  Create 3-D primitives directly\n *    replicad.makeBaseBox(width, depth, height)\n *    replicad.makeSphere(radius)\n *    replicad.makeCylinder(radius, height)\n *\n *  Boolean operations\n *    solidA.fuse(solidB)                       // union\n *    solidA.cut(solidB)                        // difference (cut a hole)\n *    solidA.intersect(solidB)                  // intersection\n *\n *  Post-processing\n *    solid.fillet(radius)                      // round ALL edges\n *    solid.fillet(r, e => e.inPlane(\"XY\", z))  // round only top-face edges\n *    solid.chamfer(distance)                   // bevel ALL edges\n *    solid.translate(x, y, z)                  // move the solid\n *    solid.rotate(angle, [0, 0, 1])            // rotate around Z axis\n *\n *  ASSEMBLY CLASS\n *  --------------\n *  Wrap any replicad solid in an Assembly to attach display metadata:\n *    new Assembly({ geometry, color, tags, bom })\n *      geometry -> replicad solid / drawing returned by the API above\n *      color    -> hex string shown in the 3-D viewport  (\"#A3CE5B\")\n *      tags     -> string[] used for filtering in cut layout / BOM\n *      bom      -> string[] lines added to the Bill of Materials panel\n *\n *  AI PROMPT TIP\n *  -------------\n *  Copy the code in this editor into ChatGPT / Claude and say something like:\n *    \"Modify this Abundance Code Atom to create a gear with 12 teeth\"\n *    \"Change this to make a hexagonal nut instead of a round plate\"\n *  The comments above give the AI all the context it needs to produce\n *  valid, working Abundance TypeScript code.\n * =========================================================================\n */\n\n/**\n * A rectangular mounting plate with a circular hole in the centre.\n * All parameters have defaults so the atom produces geometry immediately\n * after creation — no connections required to get started.\n */\nfunction run(\n  geom: Assembly,\n  thickness: number,\n) {\n  if (thickness === 0) {\n    return geom;\n  }\n  console.log(\"foo\")\n  if (geom.is2D()) {\n    return geom;\n  }\n\n  const topFaces: replicad.Face[] = []\n  geom.onLeafs((leaf) => {\n    const g = leaf.geometry as replicad.Shape3D;\n    const centerTopOfLeaf = centerTop(g.boundingBox)\n    console.log(\"target: \" + centerTopOfLeaf)\n    let bestFace = g.faces[0]\n    let closestDist = Infinity;\n    g.faces.map((face, index) => {\n      const distToTopCenter = dist(face.center.toTuple(), centerTopOfLeaf)\n      if (distToTopCenter < closestDist) {\n        closestDist = distToTopCenter\n        bestFace = face\n      }\n    });\n    topFaces.push(bestFace);\n    return leaf;\n  })\n\n  console.log(topFaces)\n\n  let index = 0\n  return geom.onLeafs((leaf) => {\n    const filter = new replicad.FaceFinder().inList(topFaces)\n    leaf.geometry = (leaf.geometry as replicad.Shape3D).shell({ filter: filter, thickness: thickness })\n    index++;\n    return leaf;\n  })\n}\n\nfunction centerTop(boundingBox: replicad.BoundingBox): [number, number, number] {\n  const center = boundingBox.center;\n  center[2] = boundingBox.bounds[1][2] // move to maxZ value.\n  return center;\n}\n\nfunction dist(p1: [number, number, number], p2: [number, number, number]) {\n  return new replicad.Vector(p1).sub(new replicad.Vector(p2)).Length\n}\n",
+      "compiledCode": "\"use strict\";\n/**\n * =========================================================================\n *  ABUNDANCE CODE ATOM — Quick Reference\n * =========================================================================\n *\n *  HOW INPUTS WORK\n *  ---------------\n *  Every parameter of run() becomes an input port on this atom.\n *  Four types are supported:\n *\n *    number   -> numeric input / slider\n *    string   -> text input  (great for hex color codes, labels, etc.)\n *    boolean  -> true/false toggle\n *    Assembly -> geometry -- wire this to the output of another atom\n *\n *  Give a parameter a default value ( = x ) to make it optional.\n *  Mark it with ? (name?: Assembly) to make it optional with no default.\n *  Parameters without a default must be connected before the atom runs.\n *\n *  RETURN VALUE\n *  ------------\n *  Return an Assembly, an Assembly[], or a primitive (number/string/boolean).\n *  Returning an Assembly[] lets downstream atoms (BOM, cut layout...)\n *  see each piece independently.\n *\n *  GEOMETRY API  (replicad is available as a global)\n *  -------------------------------------------------\n *  Create 2-D sketches\n *    replicad.drawCircle(radius)\n *    replicad.drawRectangle(width, height)\n *    replicad.drawRoundedRectangle(width, height, cornerRadius)\n *\n *  Turn a 2-D sketch into a 3-D solid\n *    sketch.sketchOnPlane().extrude(distance)\n *    sketch.sketchOnPlane().revolve()          // rotate 360 deg around Z\n *\n *  Create 3-D primitives directly\n *    replicad.makeBaseBox(width, depth, height)\n *    replicad.makeSphere(radius)\n *    replicad.makeCylinder(radius, height)\n *\n *  Boolean operations\n *    solidA.fuse(solidB)                       // union\n *    solidA.cut(solidB)                        // difference (cut a hole)\n *    solidA.intersect(solidB)                  // intersection\n *\n *  Post-processing\n *    solid.fillet(radius)                      // round ALL edges\n *    solid.fillet(r, e => e.inPlane(\"XY\", z))  // round only top-face edges\n *    solid.chamfer(distance)                   // bevel ALL edges\n *    solid.translate(x, y, z)                  // move the solid\n *    solid.rotate(angle, [0, 0, 1])            // rotate around Z axis\n *\n *  ASSEMBLY CLASS\n *  --------------\n *  Wrap any replicad solid in an Assembly to attach display metadata:\n *    new Assembly({ geometry, color, tags, bom })\n *      geometry -> replicad solid / drawing returned by the API above\n *      color    -> hex string shown in the 3-D viewport  (\"#A3CE5B\")\n *      tags     -> string[] used for filtering in cut layout / BOM\n *      bom      -> string[] lines added to the Bill of Materials panel\n *\n *  AI PROMPT TIP\n *  -------------\n *  Copy the code in this editor into ChatGPT / Claude and say something like:\n *    \"Modify this Abundance Code Atom to create a gear with 12 teeth\"\n *    \"Change this to make a hexagonal nut instead of a round plate\"\n *  The comments above give the AI all the context it needs to produce\n *  valid, working Abundance TypeScript code.\n * =========================================================================\n */\n/**\n * A rectangular mounting plate with a circular hole in the centre.\n * All parameters have defaults so the atom produces geometry immediately\n * after creation — no connections required to get started.\n */\nfunction run(geom, thickness) {\n    if (thickness === 0) {\n        return geom;\n    }\n    console.log(\"foo\");\n    if (geom.is2D()) {\n        return geom;\n    }\n    const topFaces = [];\n    geom.onLeafs((leaf) => {\n        const g = leaf.geometry;\n        const centerTopOfLeaf = centerTop(g.boundingBox);\n        console.log(\"target: \" + centerTopOfLeaf);\n        let bestFace = g.faces[0];\n        let closestDist = Infinity;\n        g.faces.map((face, index) => {\n            const distToTopCenter = dist(face.center.toTuple(), centerTopOfLeaf);\n            if (distToTopCenter < closestDist) {\n                closestDist = distToTopCenter;\n                bestFace = face;\n            }\n        });\n        topFaces.push(bestFace);\n        return leaf;\n    });\n    console.log(topFaces);\n    let index = 0;\n    return geom.onLeafs((leaf) => {\n        const filter = new replicad.FaceFinder().inList(topFaces);\n        leaf.geometry = leaf.geometry.shell({ filter: filter, thickness: thickness });\n        index++;\n        return leaf;\n    });\n}\nfunction centerTop(boundingBox) {\n    const center = boundingBox.center;\n    center[2] = boundingBox.bounds[1][2]; // move to maxZ value.\n    return center;\n}\nfunction dist(p1, p2) {\n    return new replicad.Vector(p1).sub(new replicad.Vector(p2)).Length;\n}\n"
+    }
+  ],
+  "allConnectors": [
+    {
+      "ap2Name": "geom",
+      "ap1ID": "id-20439",
+      "ap2ID": "id-20445"
+    },
+    {
+      "ap2Name": "thickness",
+      "ap1ID": "id-20442",
+      "ap2ID": "id-20445"
+    },
+    {
+      "ap2Name": "number or geometry",
+      "ap1ID": "id-20445",
+      "ap2ID": "id-20437"
+    }
+  ],
+  "unitsKey": "Unitless",
+  "fileTypeVersion": 1,
+  "filetypeVersion": 1
 }
