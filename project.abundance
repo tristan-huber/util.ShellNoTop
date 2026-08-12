@@ -30,16 +30,16 @@
     },
     {
       "atomType": "Input",
-      "x": 0.025384615384615384,
-      "y": 0.30857142857142855,
+      "x": 0.0231,
+      "y": 0.14,
       "uniqueID": "id-20439",
       "name": "Shape",
       "type": "geometry"
     },
     {
       "atomType": "Input",
-      "x": 0.025384615384615384,
-      "y": 0.5628571428571428,
+      "x": 0.0231,
+      "y": 0.22400000000000003,
       "uniqueID": "id-20442",
       "name": "Thickness"
     },
@@ -50,12 +50,12 @@
       "uniqueID": "id-20445",
       "ioValues": [
         {
-          "name": "thickness",
-          "ioValue": 10
-        },
-        {
           "name": "geom",
           "ioValue": "__GEOMETRY_INPUT__"
+        },
+        {
+          "name": "thickness",
+          "ioValue": 10
         }
       ],
       "interpreterVersion": 1,
